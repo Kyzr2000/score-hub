@@ -1,67 +1,85 @@
-import './App.css'
-import { InboxOutlined } from '@ant-design/icons'
-import { message, Upload, Button } from 'antd'
-import { useState } from 'react'
+import './App.css';
+import { InboxOutlined } from '@ant-design/icons';
+import { message, Upload, Button } from 'antd';
+import { useState } from 'react';
+import axios from 'axios';
 
-const { Dragger } = Upload
+const { Dragger } = Upload;
 
 function App() {
-  // 存储上传的文件列表
-  const [fileList, setFileList] = useState([])
-  // 控制按钮 loading 状态
-  const [loading, setLoading] = useState(false)
+  const [fileList, setFileList] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   const props = {
-    name: 'file',
+    name: 'files', // 注意这里要与后端一致
     multiple: true,
     beforeUpload: () => {
-      // 阻止自动上传
-      return false
+      return false; // 阻止自动上传
     },
     onChange(info) {
-      console.log('文件变更:', info.fileList)
-      setFileList(info.fileList)
+      console.log('文件变更:', info.fileList);
+      setFileList(info.fileList);
     },
     onDrop(e) {
-      console.log('Dropped files', e.dataTransfer.files)
+      console.log('Dropped files', e.dataTransfer.files);
     },
-  }
+  };
 
   const handleAnalyze = async () => {
     if (fileList.length === 0) {
-      message.warning('请先上传文件')
-      return
+      message.warning('请先上传文件');
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
 
     try {
-      const formData = new FormData()
+      const formData = new FormData();
+      // 遍历文件列表并添加到 FormData
       fileList.forEach((file) => {
-        formData.append('files', file.originFileObj)
-      })
+        formData.append('files', file.originFileObj); // 确保这里的 'files' 与后端一致
+      });
 
-      // 模拟调用分析接口（你可以替换成真实接口）
-      const response = await fetch(
-        'https://660d2bd96ddfa2943b33731c.mockapi.io/api/analyze',
-        {
-          method: 'POST',
-          body: formData,
+      const response = await axios.post('http://47.96.138.241:8080/merge-grades', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        responseType: 'blob', // 关键部分，确保返回 Blob 数据
+      });
+
+      // 获取文件名
+      const contentDisposition = response.headers['content-disposition'];
+      let filename = '分析结果.xlsx'; // 默认文件名
+
+      if (contentDisposition && contentDisposition.indexOf('filename=') !== -1) {
+        const matches = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (matches != null && matches[1]) {
+          filename = matches[1].replace(/['"]/g, ''); // 清理引号
         }
-      )
+      }
 
-      if (!response.ok) throw new Error('分析失败')
+      // 创建 Blob URL
+      const url = window.URL.createObjectURL(new Blob([response.data]));
 
-      const result = await response.json()
-      console.log('分析结果:', result)
-      message.success('分析完成')
+      // 创建并自动点击下载链接
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename); // 设置下载文件名
+      document.body.appendChild(link);
+      link.click();
+
+      // 清理
+      link.remove();
+      window.URL.revokeObjectURL(url); // 释放 Blob URL
+
+      message.success('文件下载成功');
     } catch (error) {
-      console.error(error)
-      message.error('分析失败')
+      console.error(error);
+      message.error('分析失败');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div
@@ -95,7 +113,7 @@ function App() {
         </Button>
       </div>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
