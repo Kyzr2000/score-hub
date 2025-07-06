@@ -84,7 +84,6 @@ function App() {
   return (
     <div
       style={{
-        background: '#ff9',
         height: '90vh',
         width: '80vw',
         display: 'flex',
